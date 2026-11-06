@@ -1,0 +1,33 @@
+name: Practica 6 - tareas paralelas
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ejecutar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Programa de la practica
+        run: python sumas.py --semilla 2025
+      - name: Experimentos, graficas, informe y pagina
+        run: |
+          python experimento.py
+          python graficas.py
+          python generar_informe.py
+          python make_site.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resultados-paralelo
+          path: |
+            *.csv
+            *.png
+            salida.txt
+            resultados.json
+            Practica6_Paralelismo_Informe.pdf
+            index.html

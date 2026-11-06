@@ -1,0 +1,22 @@
+Elementos: 100,000 | Núcleos disponibles: 1 | Procesos: 4
+Tamaño de cada segmento: 25,000
+
+=== BLOQUE 1: ejecución SECUENCIAL ===
+Suma total: 5,054,170
+--> Tiempo secuencial: 0.001680 s
+
+=== BLOQUE 2: ejecución PARALELA (multiprocessing, 4 procesos) ===
+Proceso 1: suma parcial = 1,266,049
+Proceso 2: suma parcial = 1,264,992
+Proceso 3: suma parcial = 1,262,346
+Proceso 4: suma parcial = 1,260,783
+Suma total: 5,054,170
+--> Tiempo paralelo: 0.033194 s
+
+Verificación: ambas sumas coinciden con sum(lista).
+
+=== TABLA COMPARATIVA ===
+Versión                     Tiempo (s)
+Secuencial                    0.001680
+Paralelo (4 procesos)         0.033194
+Aceleración                      0.05x

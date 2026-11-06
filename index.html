@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tareas paralelas y descomposición · laboratorio interactivo</title>
+<style>
+:root{--bg:#f6f8fc;--card:#fff;--ink:#16213a;--mut:#5b6785;--line:#d8e0f0;--navy:#1f3a5f;--seq:#d95f02;--par:#1b9e77;--ovh:#7570b3;--acc:#2f6fd0}
+@media (prefers-color-scheme:dark){:root{--bg:#10162a;--card:#182039;--ink:#e8edf9;--mut:#9aa7c7;--line:#2a3558;--acc:#6ea0f5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 56px}
+h1{font-size:1.7rem;margin:.2em 0}h2{font-size:1.2rem;margin:1.6em 0 .5em;color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+.links a{color:var(--acc);text-decoration:none;margin-right:6px}.links a:hover{text-decoration:underline}
+.ctrl{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--mut);gap:4px}
+select,input[type=range]{min-width:150px}
+select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button{padding:8px 14px;border-radius:8px;border:1px solid var(--navy);background:var(--navy);color:#fff;font-weight:600;cursor:pointer}
+button.sec{background:transparent;color:var(--ink);border-color:var(--line)}button:disabled{opacity:.5;cursor:default}
+.lane{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:.78rem;color:var(--mut)}
+.lane .name{width:92px;flex:none;text-align:right}
+.track{position:relative;flex:1;height:22px;background:color-mix(in srgb,var(--line) 45%,transparent);border-radius:5px;overflow:hidden}
+.bar{position:absolute;top:0;height:100%;width:0;border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.7rem;white-space:nowrap;overflow:hidden}
+.seq{background:var(--seq)}.par{background:var(--par)}.ovh{background:var(--ovh)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px 12px}.kpi b{display:block;font-size:1.3rem}.kpi span{font-size:.75rem;color:var(--mut)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}th{background:var(--navy);color:#fff;text-align:left}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line)}tr:nth-child(even) td{background:color-mix(in srgb,var(--line) 25%,transparent)}
+pre{background:#0f1526;color:#d6deeb;padding:14px;border-radius:10px;overflow:auto;font-size:.8rem}
+.mut{color:var(--mut);font-size:.85rem}.legend span{display:inline-block;margin-right:14px;font-size:.8rem}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.ok{color:var(--par);font-weight:600}.bad{color:var(--seq);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>Tareas paralelas y descomposición: laboratorio interactivo</h1>
+<p>Suma de una lista de números aleatorios (1–100): una sola tarea <b>secuencial</b> contra <b>4 tareas paralelas</b> (descomposición de datos con <code>multiprocessing.Pool(4)</code>). Cambia el tamaño de la lista y los núcleos disponibles para ver cuándo el paralelismo conviene.</p>
+<p class="links">
+<a href="Practica6_Paralelismo_Informe.pdf">📄 Informe (PDF)</a> ·
+<a href="sumas.py">🐍 sumas.py</a> ·
+<a href="experimento.py">🐍 experimento.py</a> ·
+<a href="repeticiones.csv">Resultados (CSV)</a> ·
+<a href="fig_tamanos.png">Gráficas</a> ·
+<a href="README.md">Cómo ejecutarlo</a>
+</p>
+
+<div class="card">
+  <div class="ctrl">
+    <label>Elementos de la lista
+      <select id="n"><option value="10000">10,000</option><option value="100000" selected>100,000 (la práctica)</option><option value="1000000">1,000,000</option><option value="10000000">10,000,000</option></select></label>
+    <label>Trabajo por elemento
+      <select id="load"><option value="light" selected>Ligero: 1 suma (la práctica)</option><option value="heavy">Pesado: 100 operaciones</option></select></label>
+    <label>Núcleos disponibles: <b id="coresV">4</b>
+      <input type="range" id="cores" min="1" max="8" value="4"></label>
+    <label>Velocidad de la animación: <b id="spdV">×1</b>
+      <input type="range" id="spd" min="0" max="4" value="2"></label>
+    <button id="run">▶ Ejecutar ambos</button>
+    <button id="rnd" class="sec">🎲 Nueva lista</button>
+    <button id="rst" class="sec">Reiniciar</button>
+  </div>
+  <p class="mut" style="margin:10px 0 0">Los tiempos de la animación salen de un modelo ajustado con mediciones reales de Python (ver abajo). La lista y las sumas parciales sí se calculan de verdad en tu navegador.</p>
+</div>
+
+<div class="card">
+  <div class="legend"><span><i class="seq"></i>cálculo secuencial</span><span><i class="par"></i>cálculo en un proceso</span><span><i class="ovh"></i>costo de crear procesos y enviar datos</span></div>
+  <h3 style="margin:.6em 0 .2em;font-size:1rem">1) Secuencial · una sola tarea con toda la lista</h3>
+  <div class="lane"><div class="name">Proceso único</div><div class="track"><div class="bar seq" id="sq"></div></div></div>
+  <h3 style="margin:1em 0 .2em;font-size:1rem">2) Paralelo · <code>Pool(4)</code> con 4 segmentos</h3>
+  <div id="lanes"></div>
+  <div class="kpis">
+    <div class="kpi"><b id="kSeq">–</b><span>tiempo secuencial</span></div>
+    <div class="kpi"><b id="kPar">–</b><span>tiempo paralelo</span></div>
+    <div class="kpi"><b id="kAcc">–</b><span>aceleración</span></div>
+    <div class="kpi"><b id="kSum">–</b><span>suma total (verificada)</span></div>
+  </div>
+  <p id="verdict" class="mut" style="margin:10px 0 0"></p>
+  <p id="parts" class="mut" style="margin:4px 0 0"></p>
+</div>
+
+<h2>Tabla comparativa (tus ejecuciones)</h2>
+<div class="card" style="overflow:auto">
+<table id="hist"><thead><tr><th>#</th><th>Elementos</th><th>Núcleos</th><th>Secuencial</th><th>Paralelo</th><th>Aceleración</th></tr></thead>
+<tbody><tr><td colspan="6" class="mut">Aún sin ejecuciones</td></tr></tbody></table>
+</div>
+
+<h2>Mediciones reales con Python (<span id="cpuR">1</span> núcleo(s) en el equipo de prueba)</h2>
+<div class="card" style="overflow:auto">
+<p class="mut" style="margin-top:0">10 corridas con 100,000 elementos (ms). Promedio: secuencial <b>1.77 ms</b>, paralelo <b>17.28 ms</b>.</p>
+<table><thead><tr><th>Corrida</th><th>Secuencial (ms)</th><th>Paralelo 4 procesos (ms)</th><th>Aceleración</th></tr></thead><tbody><tr><td>1</td><td>1.58</td><td>21.97</td><td>0.07×</td></tr><tr><td>2</td><td>1.68</td><td>17.47</td><td>0.10×</td></tr><tr><td>3</td><td>1.65</td><td>14.22</td><td>0.12×</td></tr><tr><td>4</td><td>3.11</td><td>23.06</td><td>0.13×</td></tr><tr><td>5</td><td>1.60</td><td>16.82</td><td>0.10×</td></tr><tr><td>6</td><td>1.61</td><td>17.24</td><td>0.09×</td></tr><tr><td>7</td><td>1.67</td><td>14.51</td><td>0.12×</td></tr><tr><td>8</td><td>1.61</td><td>17.87</td><td>0.09×</td></tr><tr><td>9</td><td>1.62</td><td>15.72</td><td>0.10×</td></tr><tr><td>10</td><td>1.59</td><td>13.95</td><td>0.11×</td></tr></tbody></table>
+<p class="mut">Según el tamaño de la lista (mediana, ms):</p>
+<table><thead><tr><th>Elementos</th><th>Secuencial</th><th>Paralelo (creando pool)</th><th>Paralelo (pool ya creado)</th></tr></thead><tbody><tr><td>10,000</td><td>0.17</td><td>13.92</td><td>1.17</td></tr><tr><td>100,000</td><td>1.72</td><td>16.44</td><td>4.61</td></tr><tr><td>1,000,000</td><td>16.94</td><td>62.59</td><td>42.19</td></tr><tr><td>10,000,000</td><td>162.43</td><td>476.67</td><td>386.72</td></tr></tbody></table>
+<p class="mut">Los valores completos están en <a href="repeticiones.csv">repeticiones.csv</a>, <a href="tamanos.csv">tamanos.csv</a> y <a href="resumen.csv">resumen.csv</a>. Corre <code>python experimento.py</code> en tu equipo (o la pestaña <i>Actions</i>) para obtener los tuyos.</p>
+</div>
+
+<h2>El corazón del código</h2>
+<pre>def sumar_segmento(segmento):
+    return sum(segmento)                     # tarea independiente
+
+def dividir(lista, partes=4):
+    tam = len(lista) // partes
+    return [lista[i*tam:(i+1)*tam] for i in range(partes)]
+
+with multiprocessing.Pool(4) as pool:
+    parciales = pool.map(sumar_segmento, dividir(lista))
+total = sum(parciales)                       # combinar resultados</pre>
+
+<p class="mut">Práctica 6 · Programación Paralela y Concurrente · CUCEI. Modelo de la animación: <code>t_seq = n·c</code>; <code>t_par = c₀ + n·e + ⌈4/núcleos⌉·(n/4)·c</code>, con c = <span id="mC"></span> ns por elemento (en carga pesada, <span id="mH"></span> ns), c₀ = <span id="mF"></span> ms (crear el pool) y e = <span id="mE"></span> ns por elemento (serializar y enviar). Con pocos núcleos los 4 procesos se turnan; con 4 o más corren a la vez.</p>
+</main>
+
+<script>
+const C_ELEM = 1.7221049999998073e-08, C_HEAVY = 4.234630860000017e-06, FIXED = 0.013743661999999546, TRANSFER = 3.004942310000001e-08;
+document.getElementById("mC").textContent = (C_ELEM*1e9).toFixed(1);
+document.getElementById("mH").textContent = (C_HEAVY*1e9).toFixed(0);
+document.getElementById("mF").textContent = (FIXED*1e3).toFixed(1);
+document.getElementById("mE").textContent = (TRANSFER*1e9).toFixed(1);
+const $ = id => document.getElementById(id);
+const SPEEDS = [0.25, 0.5, 1, 2, 4];
+let list = null, anim = null, runs = 0;
+
+const fmt = s => s < 1 ? (s*1000).toFixed(s < 0.01 ? 2 : 1) + " ms" : s.toFixed(2) + " s";
+function makeList(n){ const a = new Uint8Array(n); for (let i=0;i<n;i++) a[i] = 1 + Math.floor(Math.random()*100); return a; }
+function sumSeg(a, from, to){ let t = 0; for (let i=from;i<to;i++) t += a[i]; return t; }
+
+function build(){
+  const L = $("lanes"); L.innerHTML = "";
+  for (let i=1;i<=4;i++) L.insertAdjacentHTML("beforeend",
+    `<div class="lane"><div class="name">Proceso ${i}</div><div class="track"><div class="bar ovh" id="o${i}"></div><div class="bar par" id="p${i}"></div></div></div>`);
+}
+function reset(){
+  if (anim) cancelAnimationFrame(anim); anim = null;
+  build(); const s = $("sq"); s.style.width = "0"; s.textContent = "";
+  ["kSeq","kPar","kAcc","kSum"].forEach(k => $(k).textContent = "–");
+  $("verdict").textContent = ""; $("parts").textContent = ""; $("run").disabled = false;
+}
+function plan(n, cores){
+  const c = $("load").value === "heavy" ? C_HEAVY : C_ELEM;
+  const tSeq = n * c, seg = (n/4) * c, ovh = FIXED + TRANSFER*n;
+  const waves = Math.ceil(4 / cores);
+  const tasks = [0,1,2,3].map(i => { const w = Math.floor(i / cores); return {start: ovh + w*seg, end: ovh + (w+1)*seg}; });
+  return {tSeq, seg, ovh, tasks, tPar: ovh + waves*seg};
+}
+function run(){
+  reset(); $("run").disabled = true;
+  const n = +$("n").value, cores = +$("cores").value;
+  if (!list || list.length !== n) list = makeList(n);
+  // cálculo real en el navegador (no cuenta para los tiempos de la animación)
+  const q = n/4, parts = [0,1,2,3].map(i => sumSeg(list, i*q, (i+1)*q)), total = parts.reduce((a,b)=>a+b,0), check = sumSeg(list, 0, n);
+  $("parts").textContent = "Sumas parciales: " + parts.map(p => p.toLocaleString("es-MX")).join(" + ") + " = " + total.toLocaleString("es-MX") + (total === check ? "  ✓ coincide con la suma secuencial" : "  ✗ no coincide");
+  $("kSum").textContent = total.toLocaleString("es-MX");
+  const P = plan(n, cores), T = Math.max(P.tSeq, P.tPar), spd = SPEEDS[+$("spd").value];
+  const dur = 4000 / spd, t0 = performance.now();   // la escala completa tarda ~4 s a ×1
+  const pct = x => (100 * x / T).toFixed(3) + "%";
+  function frame(now){
+    const f = Math.min(1, (now - t0) / dur), t = f * T;
+    const sq = $("sq"); sq.style.left = "0"; sq.style.width = pct(Math.min(t, P.tSeq)); sq.textContent = t >= P.tSeq ? fmt(P.tSeq) : "";
+    P.tasks.forEach((k, i) => {
+      const o = $("o"+(i+1)), p = $("p"+(i+1));
+      const oe = Math.min(t, k.start); o.style.left = "0"; o.style.width = pct(oe); o.textContent = oe >= k.start && k.start/T > .08 ? "crear/enviar" : "";
+      p.style.left = pct(k.start); p.style.width = pct(Math.max(0, Math.min(t, k.end) - k.start)); p.textContent = t >= k.end ? fmt(k.end - k.start) : "";
+    });
+    if (f < 1) { anim = requestAnimationFrame(frame); return; }
+    const acc = P.tSeq / P.tPar;
+    $("kSeq").textContent = fmt(P.tSeq); $("kPar").textContent = fmt(P.tPar); $("kAcc").textContent = acc.toFixed(2) + "×";
+    $("verdict").innerHTML = acc >= 1
+      ? `<span class="ok">El paralelo gana (${acc.toFixed(2)}×).</span> Cada proceso tiene suficiente trabajo y hay núcleos para correr juntos.`
+      : `<span class="bad">El secuencial gana.</span> ${cores < 4 ? "Con " + cores + " núcleo(s) los procesos se turnan y el" : "El"} costo de crear procesos y enviar datos (${fmt(P.ovh)}) supera el trabajo que se reparte.`;
+    if (runs === 0) $("hist").tBodies[0].innerHTML = "";
+    runs++; $("hist").tBodies[0].insertAdjacentHTML("afterbegin", `<tr><td>${runs}</td><td>${n.toLocaleString("es-MX")}${$("load").value === "heavy" ? " (pesado)" : ""}</td><td>${cores}</td><td>${fmt(P.tSeq)}</td><td>${fmt(P.tPar)}</td><td>${acc.toFixed(2)}×</td></tr>`);
+    $("run").disabled = false;
+  }
+  anim = requestAnimationFrame(frame);
+}
+$("cores").oninput = e => $("coresV").textContent = e.target.value;
+$("spd").oninput = e => $("spdV").textContent = "×" + SPEEDS[+e.target.value];
+$("n").onchange = () => { list = null; reset(); };
+$("load").onchange = reset;
+$("rnd").onclick = () => { list = null; reset(); };
+$("rst").onclick = reset; $("run").onclick = run;
+reset();
+</script>
+</body>
+</html>
